@@ -1,0 +1,26 @@
+# ── YouTube API ────────────────────────────────────────────────────────────────
+google-api-python-client>=2.120.0
+
+# ── Image processing ───────────────────────────────────────────────────────────
+Pillow>=10.3.0
+opencv-python-headless>=4.9.0
+imagehash>=4.3.1
+numpy>=1.26.0
+requests>=2.31.0
+
+# ── Segmentation backends (install at least one) ───────────────────────────────
+# MediaPipe (CPU, fast):
+mediapipe>=0.10.14
+
+# SAM 2 (GPU, accurate) — install manually from:
+#   https://github.com/facebookresearch/segment-anything-2
+# Then install the package: pip install -e .
+# Also needs: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+# ── Face compositing ───────────────────────────────────────────────────────────
+insightface>=0.7.3
+onnxruntime>=1.18.0          # CPU inference for InsightFace
+# onnxruntime-gpu>=1.18.0    # uncomment for GPU inference
+
+# ── Utilities ──────────────────────────────────────────────────────────────────
+python-dotenv>=1.0.0
