@@ -62,7 +62,9 @@ def api_templates():
             "video_title":   e.get("video_title", ""),
             "hotness_score": round(e.get("hotness_score", 0), 2),
             "view_count":    e.get("view_count", 0),
-            "ready":         Path(e["files"]["bg_only"]).exists() and Path(e["files"]["mask"]).exists(),
+            "ready":         bool(e.get("dna")),
+        "emotion":       (e.get("dna") or {}).get("emotion", ""),
+        "layout":        (e.get("dna") or {}).get("layout", ""),
             "thumbnail_url": f"/thumb/{original.relative_to(BASE_DIR)}" if original.exists() else None,
         })
     return jsonify(result)
@@ -71,7 +73,6 @@ def api_templates():
 @app.route("/api/generate", methods=["POST"])
 def api_generate():
     template_id = request.form.get("template_id", "").strip()
-    mode = request.form.get("mode", "alpha_blend")
     photo = request.files.get("photo")
 
     if not template_id:
@@ -79,7 +80,6 @@ def api_generate():
     if not photo or not _allowed(photo.filename):
         return jsonify({"error": "Upload a jpg/png photo"}), 400
 
-    # Save uploaded photo
     ext = photo.filename.rsplit(".", 1)[1].lower()
     user_path = UPLOAD_DIR / f"{uuid.uuid4().hex}.{ext}"
     photo.save(str(user_path))
@@ -89,7 +89,6 @@ def api_generate():
             template_id=template_id,
             user_image_path=user_path,
             output_path=OUTPUT_DIR / f"{template_id}_{uuid.uuid4().hex[:8]}.jpg",
-            mode=mode,
         )
         return jsonify({"result_url": f"/output/{out_path.name}"})
     except (ValueError, FileNotFoundError) as exc:

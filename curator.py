@@ -29,6 +29,7 @@ from googleapiclient.discovery import build
 from PIL import Image
 
 import manifest as mf
+from analyzer import analyze_thumbnail
 from config import (
     ARCHIVE_DIR,
     MAX_RESULTS_PER_NICHE,
@@ -240,14 +241,16 @@ def scout_niche(
             "status": "active",
             "files": {
                 "original": str(tmp_path),
-                "bg_only": str(niche_dir / f"{template_id}_bg_only.png"),
-                "mask": str(niche_dir / f"{template_id}_mask.png"),
             },
+            "dna": analyze_thumbnail(tmp_path),
         }
 
         mf.add_entry(manifest_data, entry)
         added += 1
-        logger.info("Added template %s (ratio=%.2f)", template_id, ratio)
+        logger.info(
+            "Added %s (ratio=%.2f emotion=%s)",
+            template_id, ratio, entry["dna"].get("emotion", "?"),
+        )
 
         if mf.count_active(manifest_data) >= TARGET_LIBRARY_SIZE:
             logger.info("Library size cap reached (%d).", TARGET_LIBRARY_SIZE)

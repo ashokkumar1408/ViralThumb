@@ -170,11 +170,26 @@ h3 {
   object-fit: cover;
   display: block;
 }
-#selected-info {
-  padding: 10px 12px;
+.selected-info {
+  padding: 8px 12px 4px;
   font-size: 0.8rem;
   color: #64748b;
 }
+.dna-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 4px 12px 10px;
+}
+.dna-badge {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 12px;
+  text-transform: capitalize;
+}
+.dna-badge.emotion  { background: rgba(239,68,68,.15);  color: #f87171; border: 1px solid rgba(239,68,68,.3); }
+.dna-badge.layout   { background: rgba(99,102,241,.15); color: #a5b4fc; border: 1px solid rgba(99,102,241,.3); }
 
 .placeholder-box {
   background: #151720;
@@ -211,24 +226,6 @@ h3 {
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid #2a2d3e;
-}
-
-.mode-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
-  font-size: 0.85rem;
-  color: #64748b;
-}
-.mode-row select {
-  flex: 1;
-  background: #1a1d2e;
-  border: 1px solid #2a2d3e;
-  color: #e2e8f0;
-  border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 0.85rem;
 }
 
 /* ── Buttons ─────────────────────────────────────────────────────────────── */

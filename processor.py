@@ -1,17 +1,12 @@
 """
-processor.py – The "Base-ify" Engine
+processor.py – Template Preparation
 
-For every new viral thumbnail added by curator.py, this module:
-  1. Detects the primary person (protagonist) in the image.
-  2. Generates a binary mask of that person.
-  3. Inpaints the person out → background_only.png.
-  4. Saves both mask.png and bg_only.png alongside the original.
+Prepares downloaded thumbnails for generation by:
+  1. Running rembg to verify a person is present (flags templates with no subject).
+  2. Running the analyzer to extract visual DNA and store it in manifest.json.
 
-Segmentation backends (set SEGMENTATION_BACKEND in .env):
-  • 'rembg'      – default; CPU, no model download needed, works on macOS/Linux/Win.
-  • 'mediapipe'  – falls back to rembg if the MediaPipe solutions API is unavailable
-                   (MediaPipe ≥ 0.10 on macOS removed selfie_segmentation).
-  • 'sam2'       – highest quality, requires GPU + SAM 2 checkpoint.
+No inpainting needed — the smart generator builds a fresh background from DNA,
+so we never need the bg_only.png file at all.
 
 Usage:
     python processor.py                          # process all unprocessed templates
@@ -20,205 +15,75 @@ Usage:
 """
 
 import argparse
+import io
 import logging
 from pathlib import Path
 from typing import Any
 
-import cv2
-import numpy as np
-from PIL import Image
-
 import manifest as mf
-from config import (
-    SAM2_CHECKPOINT,
-    SAM2_CONFIG,
-    SEGMENTATION_BACKEND,
-    TEMPLATES_DIR,
-)
+from analyzer import analyze_thumbnail
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
-# ── rembg backend (default) ────────────────────────────────────────────────────
-
-def _rembg_mask(image_path: Path) -> np.ndarray | None:
+def _has_subject(image_path: Path) -> bool:
     """
-    Remove background via rembg (U2Net). Returns uint8 mask (255=person).
-    Works on macOS, Linux, and Windows without a GPU.
+    Quick rembg check: return True if rembg finds a meaningful foreground subject.
+    Prevents wasting time generating thumbnails for pure-text or logo-only thumbnails.
     """
     try:
+        import numpy as np
         from rembg import remove as rembg_remove
-    except ImportError:
-        raise ImportError("Install rembg: pip install rembg")
+        from PIL import Image
 
-    input_img = Image.open(image_path).convert("RGB")
-    output_img = rembg_remove(input_img)           # returns RGBA; alpha = foreground
-    alpha = np.array(output_img.convert("RGBA"))[:, :, 3]
-    mask = (alpha > 127).astype(np.uint8) * 255
+        with open(image_path, "rb") as f:
+            data = f.read()
+        result = rembg_remove(data)
+        out = Image.open(io.BytesIO(result)).convert("RGBA")
+        alpha = np.array(out)[:, :, 3]
+        coverage = float((alpha > 127).sum()) / alpha.size
+        return coverage > 0.04  # at least 4 % of pixels are foreground
+    except Exception as exc:
+        logger.warning("Subject check failed for %s: %s", image_path, exc)
+        return True  # optimistic: don't discard on error
 
-    # Clean up small floating islands
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-    return mask
-
-
-# ── MediaPipe backend ──────────────────────────────────────────────────────────
-
-def _mediapipe_mask(image_path: Path) -> np.ndarray | None:
-    """
-    Return a uint8 mask using MediaPipe Selfie Segmentation.
-    MediaPipe ≥ 0.10 removed mp.solutions on macOS — falls back to rembg
-    automatically so the pipeline never hard-crashes.
-    """
-    try:
-        import mediapipe as mp
-
-        # mp.solutions was deprecated in MediaPipe 0.10+ on some platforms
-        selfie_mod = getattr(mp, "solutions", None)
-        selfie_seg = getattr(selfie_mod, "selfie_segmentation", None) if selfie_mod else None
-
-        if selfie_seg is None:
-            logger.warning(
-                "mp.solutions.selfie_segmentation not available in this MediaPipe "
-                "version — falling back to rembg."
-            )
-            return _rembg_mask(image_path)
-
-        img_bgr = cv2.imread(str(image_path))
-        if img_bgr is None:
-            logger.error("Could not read %s", image_path)
-            return None
-
-        with selfie_seg.SelfieSegmentation(model_selection=1) as seg:
-            img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-            result = seg.process(img_rgb)
-
-        if result.segmentation_mask is None:
-            return None
-
-        mask = (result.segmentation_mask > 0.5).astype(np.uint8) * 255
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
-        return mask
-
-    except ImportError:
-        raise ImportError("Install mediapipe: pip install mediapipe")
-
-
-# ── SAM 2 backend ──────────────────────────────────────────────────────────────
-
-def _sam2_mask(image_path: Path) -> np.ndarray | None:
-    """Return a uint8 mask using SAM 2 with automatic point prompting from faces."""
-    try:
-        import torch
-        from sam2.build_sam import build_sam2
-        from sam2.sam2_image_predictor import SAM2ImagePredictor
-    except ImportError:
-        raise ImportError(
-            "Install SAM 2: follow https://github.com/facebookresearch/segment-anything-2"
-        )
-
-    device = "cuda" if __import__("torch").cuda.is_available() else "cpu"
-    sam2_model = build_sam2(SAM2_CONFIG, SAM2_CHECKPOINT, device=device)
-    predictor = SAM2ImagePredictor(sam2_model)
-
-    img = np.array(Image.open(image_path).convert("RGB"))
-
-    # Detect face center as a positive prompt point
-    face_cascade = cv2.CascadeClassifier(
-        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    )
-    gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-    faces = face_cascade.detectMultiScale(gray, 1.1, 4)
-
-    if len(faces) == 0:
-        # Fallback: use image center as prompt
-        h, w = img.shape[:2]
-        input_point = np.array([[w // 2, h // 3]])
-    else:
-        # Largest face
-        x, y, fw, fh = max(faces, key=lambda f: f[2] * f[3])
-        input_point = np.array([[x + fw // 2, y + fh // 2]])
-
-    input_label = np.array([1])  # 1 = foreground
-
-    predictor.set_image(img)
-    masks, scores, _ = predictor.predict(
-        point_coords=input_point,
-        point_labels=input_label,
-        multimask_output=True,
-    )
-    best_mask = masks[np.argmax(scores)]  # shape (H, W), bool
-    return (best_mask.astype(np.uint8)) * 255
-
-
-# ── Inpainting ─────────────────────────────────────────────────────────────────
-
-def inpaint_person(original_path: Path, mask: np.ndarray) -> np.ndarray:
-    """
-    Remove the masked person from the image using OpenCV inpainting.
-    Returns a BGR image array with the person replaced by plausible background.
-    """
-    img_bgr = cv2.imread(str(original_path))
-    if img_bgr is None:
-        raise IOError(f"Cannot read {original_path}")
-
-    # Dilate mask slightly so the inpainter covers the full silhouette edge
-    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
-    dilated_mask = cv2.dilate(mask, kernel, iterations=2)
-
-    # TELEA inpainting radius 5 gives good results without heavy blurring
-    inpainted = cv2.inpaint(img_bgr, dilated_mask, inpaintRadius=5, flags=cv2.INPAINT_TELEA)
-    return inpainted
-
-
-# ── Per-template processing ────────────────────────────────────────────────────
 
 def process_template(entry: dict[str, Any], force: bool = False) -> bool:
-    """
-    Generate mask + bg_only for a single manifest entry.
-    Returns True on success.
-    """
-    files = entry.get("files", {})
-    original_path = Path(files.get("original", ""))
-    mask_path = Path(files.get("mask", ""))
-    bg_only_path = Path(files.get("bg_only", ""))
+    """Analyze a single template and store DNA in its manifest entry."""
+    original_path = Path(entry["files"]["original"])
 
     if not original_path.exists():
         logger.warning("Original not found: %s", original_path)
         return False
 
-    if not force and mask_path.exists() and bg_only_path.exists():
+    already_done = bool(entry.get("dna"))
+    if already_done and not force:
         logger.debug("Already processed: %s", entry["template_id"])
         return True
 
-    logger.info("Processing %s with backend '%s'…", entry["template_id"], SEGMENTATION_BACKEND)
+    logger.info("Processing %s …", entry["template_id"])
 
-    if SEGMENTATION_BACKEND == "sam2":
-        mask = _sam2_mask(original_path)
-    elif SEGMENTATION_BACKEND == "mediapipe":
-        mask = _mediapipe_mask(original_path)
-    else:  # default: rembg
-        mask = _rembg_mask(original_path)
-
-    if mask is None:
-        logger.warning("Segmentation failed for %s — no person detected.", entry["template_id"])
+    if not _has_subject(original_path):
+        logger.warning("  No subject detected — skipping %s", entry["template_id"])
+        entry["dna"] = None
+        entry["has_subject"] = False
         return False
 
-    # Save mask
-    cv2.imwrite(str(mask_path), mask)
+    dna = analyze_thumbnail(original_path)
+    if not dna:
+        logger.warning("  Analysis failed for %s", entry["template_id"])
+        return False
 
-    # Inpaint and save background-only version
-    bg_bgr = inpaint_person(original_path, mask)
-    cv2.imwrite(str(bg_only_path), bg_bgr)
+    entry["dna"] = dna
+    entry["has_subject"] = True
 
-    logger.info("  ✓ mask → %s", mask_path.name)
-    logger.info("  ✓ bg   → %s", bg_only_path.name)
+    logger.info(
+        "  ✓ emotion=%-12s layout=%-30s contrast=%s",
+        dna["emotion"], dna["layout"], dna["contrast_style"],
+    )
     return True
 
-
-# ── Entry point ────────────────────────────────────────────────────────────────
 
 def run(template_id: str | None = None, force: bool = False) -> None:
     manifest_data = mf.load()
@@ -235,10 +100,12 @@ def run(template_id: str | None = None, force: bool = False) -> None:
     ok = fail = 0
     for entry in entries:
         if process_template(entry, force=force):
+            manifest_data["templates"][entry["template_id"]] = entry
             ok += 1
         else:
             fail += 1
 
+    mf.save(manifest_data)
     logger.info("Processing complete: %d succeeded, %d failed.", ok, fail)
 
 

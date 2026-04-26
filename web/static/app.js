@@ -1,6 +1,14 @@
 /* ── State ─────────────────────────────────────────────────────────────── */
 let selectedTemplateId = null;
-let currentNiche = "";
+
+const EMOTION_ICONS = {
+  shock:       "😱",
+  excitement:  "🔥",
+  fear:        "😨",
+  curiosity:   "🤔",
+  mystery:     "🕵️",
+  celebration: "🎉",
+};
 
 /* ── Boot ──────────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
@@ -29,7 +37,6 @@ async function loadNiches() {
 function switchNiche(niche, btn) {
   document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
   btn.classList.add("active");
-  currentNiche = niche;
   loadTemplates(niche);
 }
 
@@ -43,7 +50,7 @@ async function loadTemplates(niche) {
   const data = await res.json();
 
   if (!data.length) {
-    grid.innerHTML = '<div class="loading">No templates found. Run curator.py first.</div>';
+    grid.innerHTML = '<div class="loading">No templates yet. Run <code>python curator.py --niche gaming</code> then <code>python processor.py</code>.</div>';
     return;
   }
 
@@ -58,7 +65,9 @@ async function loadTemplates(niche) {
       ? (t.view_count / 1e6).toFixed(1) + "M"
       : t.view_count >= 1e3
         ? (t.view_count / 1e3).toFixed(0) + "K"
-        : t.view_count;
+        : String(t.view_count);
+
+    const emotionIcon = EMOTION_ICONS[t.emotion] || "📹";
 
     card.innerHTML = `
       <img src="${imgSrc}" alt="${t.video_title}" loading="lazy"
@@ -68,7 +77,7 @@ async function loadTemplates(niche) {
         <div class="card-meta">
           <span>${views} views</span>
           <span class="${t.ready ? "badge-ready" : "badge-pending"}">
-            ${t.ready ? "✓ ready" : "⏳ processing"}
+            ${t.ready ? emotionIcon + " ready" : "⏳ analyzing"}
           </span>
         </div>
       </div>`;
@@ -90,6 +99,18 @@ function selectTemplate(t, card, imgSrc) {
   document.getElementById("selected-img").src   = imgSrc;
   document.getElementById("selected-info").textContent =
     `${t.niche.toUpperCase()} · ${t.video_title}`;
+
+  // DNA badges
+  const dnaBadges = document.getElementById("selected-dna");
+  dnaBadges.innerHTML = "";
+  if (t.emotion) {
+    const emotionIcon = EMOTION_ICONS[t.emotion] || "📹";
+    dnaBadges.innerHTML += `<span class="dna-badge emotion">${emotionIcon} ${t.emotion}</span>`;
+  }
+  if (t.layout) {
+    const layoutLabel = t.layout.replace(/_/g, " ");
+    dnaBadges.innerHTML += `<span class="dna-badge layout">📐 ${layoutLabel}</span>`;
+  }
 
   document.getElementById("no-selection").classList.add("hidden");
   document.getElementById("selected-preview").classList.remove("hidden");
@@ -133,14 +154,12 @@ function bindForm() {
       const res = await fetch("/api/generate", { method: "POST", body: fd });
       const json = await res.json();
 
-      if (!res.ok || json.error) {
-        throw new Error(json.error || "Server error");
-      }
+      if (!res.ok || json.error) throw new Error(json.error || "Server error");
 
-      const resultImg  = document.getElementById("result-img");
+      const resultImg   = document.getElementById("result-img");
       const downloadBtn = document.getElementById("download-btn");
-      resultImg.src    = json.result_url + "?t=" + Date.now();
-      downloadBtn.href = json.result_url;
+      resultImg.src     = json.result_url + "?t=" + Date.now();
+      downloadBtn.href  = json.result_url;
       document.getElementById("result-section").classList.remove("hidden");
 
     } catch (err) {
