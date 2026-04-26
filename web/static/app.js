@@ -13,7 +13,7 @@ document.addEventListener("DOMContentLoaded", () => {
   bindActions();
 });
 
-/* ── Step 1: Template grid ─────────────────────────────────────────────── */
+/* ── Step 1: Template grid (real YouTube thumbnails) ──────────────────── */
 async function loadTemplates() {
   let templates;
   try {
@@ -23,14 +23,28 @@ async function loadTemplates() {
     return;
   }
 
-  const grid = document.getElementById("template-grid");
+  const grid       = document.getElementById("template-grid");
+  const emptyState = document.getElementById("empty-state");
+
+  if (!templates.length) {
+    emptyState.classList.remove("hidden");
+    return;
+  }
+
+  emptyState.classList.add("hidden");
+  grid.innerHTML = "";
+
   templates.forEach(t => {
     const card = document.createElement("div");
     card.className  = "tmpl-card";
     card.dataset.id = t.id;
     card.innerHTML  = `
-      <img class="tmpl-preview" src="/api/templates/preview/${t.id}" alt="${t.name}" loading="lazy"/>
-      <div class="tmpl-name">${t.name}</div>`;
+      <img class="tmpl-preview" src="/api/templates/preview/${t.id}"
+           alt="${t.name}" loading="lazy"/>
+      <div class="tmpl-meta">
+        <div class="tmpl-name">${t.name}</div>
+        <div class="tmpl-niche">${t.niche}</div>
+      </div>`;
 
     card.addEventListener("click", () => {
       document.querySelectorAll(".tmpl-card").forEach(c => c.classList.remove("selected"));
@@ -41,6 +55,31 @@ async function loadTemplates() {
 
     grid.appendChild(card);
   });
+}
+
+/* ── Fetch YouTube thumbnails ─────────────────────────────────────────── */
+async function fetchYouTube() {
+  const btn     = document.getElementById("fetch-btn");
+  const spinner = document.getElementById("fetch-spinner");
+  const errEl   = document.getElementById("fetch-error");
+
+  btn.disabled = true;
+  spinner.classList.remove("hidden");
+  errEl.classList.add("hidden");
+
+  try {
+    const res  = await fetch("/api/fetch-youtube", { method: "POST" });
+    const json = await res.json();
+    if (!res.ok || json.error) throw new Error(json.error || "Server error");
+    // Reload template grid
+    await loadTemplates();
+  } catch (err) {
+    errEl.textContent = "Error: " + err.message;
+    errEl.classList.remove("hidden");
+    btn.disabled = false;
+  } finally {
+    spinner.classList.add("hidden");
+  }
 }
 
 /* ── Step 2: Upload + expression variants ──────────────────────────────── */
@@ -135,6 +174,11 @@ function updateGenerateBtn() {
 function bindActions() {
   document.getElementById("generate-btn").addEventListener("click", generate);
   document.getElementById("redo-btn").addEventListener("click", reset);
+  document.getElementById("fetch-btn").addEventListener("click", fetchYouTube);
+  document.getElementById("refresh-btn").addEventListener("click", async () => {
+    document.getElementById("template-grid").innerHTML = "";
+    await loadTemplates();
+  });
 }
 
 async function generate() {

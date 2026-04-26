@@ -18,10 +18,10 @@ from pathlib import Path
 
 from flask import Flask, abort, jsonify, render_template, request, send_file
 
-from config import BASE_DIR, OUTPUT_DIR
+from config import BASE_DIR, OUTPUT_DIR, YOUTUBE_API_KEY
 from expressions import generate_variants
 from generator import combine_thumbnail
-from thumbnail_engine import TEMPLATES, get_background, list_templates, pre_render_all
+from thumbnail_engine import TEMPLATES, get_background, list_templates, pre_render_all, refresh_templates
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -125,6 +125,23 @@ def api_generate():
         return jsonify({"result_url": f"/output/{out.name}"})
     except Exception as exc:
         logger.exception("generate failed")
+        return jsonify({"error": str(exc)}), 500
+
+
+@app.route("/api/fetch-youtube", methods=["POST"])
+def api_fetch_youtube():
+    """Trigger curator to pull fresh trending thumbnails from YouTube."""
+    if not YOUTUBE_API_KEY:
+        return jsonify({"error": "YOUTUBE_API_KEY is not set in your .env file"}), 400
+    try:
+        import curator
+        curator.run()
+        count = refresh_templates()
+        return jsonify({"count": count})
+    except EnvironmentError as exc:
+        return jsonify({"error": str(exc)}), 400
+    except Exception as exc:
+        logger.exception("fetch-youtube failed")
         return jsonify({"error": str(exc)}), 500
 
 

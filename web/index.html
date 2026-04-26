@@ -10,14 +10,36 @@
 
 <header>
   <span class="logo">&#9889; ViralThumb</span>
-  <span class="tagline">Create viral YouTube thumbnails in seconds</span>
+  <span class="tagline">Composite your face into real viral YouTube thumbnails</span>
+  <button id="refresh-btn" class="btn-refresh" title="Fetch latest YouTube thumbnails">
+    &#8635; Refresh from YouTube
+  </button>
 </header>
 
 <main>
 
-  <!-- ══ STEP 1: Choose a template ═════════════════════════════════════════ -->
+  <!-- ══ STEP 1: Choose a real YouTube thumbnail ═══════════════════════════ -->
   <section class="step" id="step-template">
-    <div class="step-label"><span class="num">1</span> Choose a template</div>
+    <div class="step-label"><span class="num">1</span> Choose a viral thumbnail</div>
+
+    <!-- Empty state when no thumbnails fetched yet -->
+    <div id="empty-state" class="empty-state hidden">
+      <div class="empty-icon">&#127909;</div>
+      <div class="empty-title">No templates loaded yet</div>
+      <div class="empty-body">
+        Add your <code>YOUTUBE_API_KEY</code> to <code>.env</code>,
+        then fetch real trending thumbnails from YouTube.
+      </div>
+      <button id="fetch-btn" class="btn-fetch">
+        &#8635; Fetch Trending Thumbnails
+      </button>
+      <div id="fetch-spinner" class="fetch-spinner hidden">
+        <div class="ring sm"></div>
+        <span>Downloading thumbnails from YouTube…</span>
+      </div>
+      <div id="fetch-error" class="error hidden"></div>
+    </div>
+
     <div id="template-grid" class="template-grid">
       <!-- injected by JS -->
     </div>
@@ -33,15 +55,14 @@
       <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp"/>
     </label>
 
-    <!-- Expression variants appear here after upload -->
     <div id="variants-wrap" class="hidden">
       <div class="variants-label">Pick your expression</div>
-      <div id="variants-grid" class="variants-grid">
-        <!-- 4 cards injected by JS -->
-      </div>
       <div id="variants-spinner" class="variants-spinner hidden">
         <div class="ring sm"></div>
         <span>Removing background &amp; generating expressions…</span>
+      </div>
+      <div id="variants-grid" class="variants-grid">
+        <!-- 4 cards injected by JS -->
       </div>
     </div>
   </section>
@@ -63,7 +84,7 @@
   <!-- ══ Spinner ═══════════════════════════════════════════════════════════ -->
   <div id="spinner" class="spinner hidden">
     <div class="ring"></div>
-    <p>Compositing background &bull; applying outline &amp; glow &bull; grading…</p>
+    <p>Compositing your face &bull; applying outline &amp; glow &bull; grading…</p>
   </div>
 
   <!-- ══ Error ════════════════════════════════════════════════════════════ -->
