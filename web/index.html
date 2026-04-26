@@ -3,65 +3,81 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>ViralThumb</title>
+  <title>ViralThumb — Viral YouTube Thumbnails</title>
   <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
 
 <header>
-  <span class="logo">⚡ ViralThumb</span>
-  <span class="tagline">Viral YouTube thumbnails in 3 steps</span>
+  <span class="logo">&#9889; ViralThumb</span>
+  <span class="tagline">Create viral YouTube thumbnails in seconds</span>
 </header>
 
 <main>
 
-  <!-- ── STEP 1: Pick a style ───────────────────────────────────────── -->
-  <section class="step">
-    <div class="step-label"><span class="num">1</span> Pick a style</div>
-    <div id="style-grid" class="style-grid">
+  <!-- ══ STEP 1: Choose a template ═════════════════════════════════════════ -->
+  <section class="step" id="step-template">
+    <div class="step-label"><span class="num">1</span> Choose a template</div>
+    <div id="template-grid" class="template-grid">
       <!-- injected by JS -->
     </div>
   </section>
 
-  <!-- ── STEP 2 + 3: Upload + Text ─────────────────────────────────── -->
-  <section class="step">
+  <!-- ══ STEP 2: Upload photo + pick expression ════════════════════════════ -->
+  <section class="step" id="step-photo">
     <div class="step-label"><span class="num">2</span> Upload your photo</div>
 
     <label class="upload-zone" for="photo-input" id="upload-zone">
-      <div id="upload-icon">📷</div>
+      <div id="upload-icon">&#128247;</div>
       <div id="upload-hint">Click or drag a photo here</div>
       <input type="file" id="photo-input" accept="image/jpeg,image/png,image/webp"/>
-      <img id="photo-preview" class="hidden" alt="preview"/>
     </label>
+
+    <!-- Expression variants appear here after upload -->
+    <div id="variants-wrap" class="hidden">
+      <div class="variants-label">Pick your expression</div>
+      <div id="variants-grid" class="variants-grid">
+        <!-- 4 cards injected by JS -->
+      </div>
+      <div id="variants-spinner" class="variants-spinner hidden">
+        <div class="ring sm"></div>
+        <span>Removing background &amp; generating expressions…</span>
+      </div>
+    </div>
   </section>
 
-  <section class="step">
-    <div class="step-label"><span class="num">3</span> Add your text <span class="optional">(optional)</span></div>
-    <input  id="headline" class="text-input big"  type="text" placeholder='Headline  e.g.  "I CAN&#39;T BELIEVE"' maxlength="40"/>
-    <input  id="sub-text" class="text-input small" type="text" placeholder='Sub-line  e.g.  "THIS ACTUALLY WORKS"' maxlength="40"/>
+  <!-- ══ STEP 3: Text ══════════════════════════════════════════════════════ -->
+  <section class="step" id="step-text">
+    <div class="step-label"><span class="num">3</span> Add text <span class="optional">(optional)</span></div>
+    <input id="headline" class="text-input big"   type="text"
+           placeholder='Headline  e.g.  "I CAN&#39;T BELIEVE"' maxlength="40"/>
+    <input id="sub-text" class="text-input small" type="text"
+           placeholder='Sub-line  e.g.  "THIS ACTUALLY WORKS"' maxlength="40"/>
   </section>
 
-  <!-- ── Generate ───────────────────────────────────────────────────── -->
+  <!-- ══ Generate ══════════════════════════════════════════════════════════ -->
   <button id="generate-btn" class="btn-generate" disabled>
-    ✨ Generate Thumbnail
+    &#10024; Generate Thumbnail
   </button>
 
-  <!-- ── Spinner ────────────────────────────────────────────────────── -->
+  <!-- ══ Spinner ═══════════════════════════════════════════════════════════ -->
   <div id="spinner" class="spinner hidden">
     <div class="ring"></div>
-    <p>Cutting out subject · building background · applying effects…</p>
+    <p>Compositing background &bull; applying outline &amp; glow &bull; grading…</p>
   </div>
 
-  <!-- ── Error ──────────────────────────────────────────────────────── -->
+  <!-- ══ Error ════════════════════════════════════════════════════════════ -->
   <div id="error-box" class="error hidden"></div>
 
-  <!-- ── Result ─────────────────────────────────────────────────────── -->
+  <!-- ══ Result ═══════════════════════════════════════════════════════════ -->
   <div id="result-wrap" class="result-wrap hidden">
-    <div class="result-label">Your thumbnail  ↓</div>
+    <div class="result-label">Your thumbnail &#8595;</div>
     <img id="result-img" src="" alt="Generated thumbnail"/>
     <div class="result-actions">
-      <a id="download-btn" href="#" download="viral_thumbnail.jpg" class="btn-dl">⬇ Download 1280×720</a>
-      <button id="redo-btn" class="btn-redo">↩ Try another style</button>
+      <a id="download-btn" href="#" download="viral_thumbnail.jpg" class="btn-dl">
+        &#8595; Download 1280&times;720
+      </a>
+      <button id="redo-btn" class="btn-redo">&#8617; Start over</button>
     </div>
   </div>
 
