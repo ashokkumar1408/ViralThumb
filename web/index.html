@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ViralThumb – Thumbnail Generator</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<header>
+  <div class="logo">⚡ ViralThumb</div>
+  <p class="tagline">Drop your face into any viral YouTube thumbnail</p>
+</header>
+
+<main>
+
+  <!-- ── LEFT: Template Browser ─────────────────────────────────────── -->
+  <section class="panel" id="browser-panel">
+    <h2>Template Library</h2>
+
+    <div class="niche-tabs" id="niche-tabs">
+      <button class="tab active" data-niche="">All</button>
+    </div>
+
+    <div id="template-grid" class="template-grid">
+      <div class="loading">Loading templates…</div>
+    </div>
+  </section>
+
+  <!-- ── RIGHT: Generator ───────────────────────────────────────────── -->
+  <section class="panel" id="generator-panel">
+    <h2>Generate Your Thumbnail</h2>
+
+    <div id="selected-preview" class="selected-preview hidden">
+      <img id="selected-img" src="" alt="Selected template" />
+      <div id="selected-info"></div>
+    </div>
+    <div id="no-selection" class="placeholder-box">
+      ← Pick a template from the library
+    </div>
+
+    <form id="generate-form" class="hidden">
+      <input type="hidden" id="template_id" name="template_id" />
+
+      <label class="upload-label" for="photo-input">
+        <span id="upload-text">📷 Upload your photo (jpg / png)</span>
+        <input type="file" id="photo-input" name="photo" accept="image/jpeg,image/png,image/webp" required />
+      </label>
+
+      <div id="photo-preview-wrap" class="hidden">
+        <img id="photo-preview" src="" alt="Your photo" />
+      </div>
+
+      <div class="mode-row">
+        <label>Compositing mode:</label>
+        <select name="mode" id="mode-select">
+          <option value="alpha_blend" selected>Alpha Blend (fast, CPU)</option>
+          <option value="insightface">InsightFace (face-swap, needs GPU)</option>
+        </select>
+      </div>
+
+      <button type="submit" id="generate-btn" class="btn-primary">
+        ✨ Generate Thumbnail
+      </button>
+    </form>
+
+    <!-- Result -->
+    <div id="result-section" class="hidden">
+      <h3>Your Result</h3>
+      <img id="result-img" src="" alt="Generated thumbnail" />
+      <a id="download-btn" href="#" download="viral_thumbnail.jpg" class="btn-secondary">
+        ⬇ Download
+      </a>
+      <button id="reset-btn" class="btn-ghost">Generate another</button>
+    </div>
+
+    <div id="error-box" class="error-box hidden"></div>
+    <div id="spinner" class="spinner hidden">
+      <div class="spinner-ring"></div>
+      <p>Compositing your thumbnail…</p>
+    </div>
+  </section>
+
+</main>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

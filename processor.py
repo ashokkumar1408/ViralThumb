@@ -7,9 +7,11 @@ For every new viral thumbnail added by curator.py, this module:
   3. Inpaints the person out → background_only.png.
   4. Saves both mask.png and bg_only.png alongside the original.
 
-Two backends are supported (set SEGMENTATION_BACKEND in .env):
-  • 'mediapipe'  – fast, CPU-only, good enough for most thumbnails.
-  • 'sam2'       – highly accurate, needs a GPU + SAM 2 checkpoint.
+Segmentation backends (set SEGMENTATION_BACKEND in .env):
+  • 'rembg'      – default; CPU, no model download needed, works on macOS/Linux/Win.
+  • 'mediapipe'  – falls back to rembg if the MediaPipe solutions API is unavailable
+                   (MediaPipe ≥ 0.10 on macOS removed selfie_segmentation).
+  • 'sam2'       – highest quality, requires GPU + SAM 2 checkpoint.
 
 Usage:
     python processor.py                          # process all unprocessed templates
@@ -38,33 +40,70 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
 
-# ── MediaPipe backend ──────────────────────────────────────────────────────────
+# ── rembg backend (default) ────────────────────────────────────────────────────
 
-def _mediapipe_mask(image_path: Path) -> np.ndarray | None:
-    """Return a uint8 mask (255=person, 0=background) using MediaPipe Selfie."""
+def _rembg_mask(image_path: Path) -> np.ndarray | None:
+    """
+    Remove background via rembg (U2Net). Returns uint8 mask (255=person).
+    Works on macOS, Linux, and Windows without a GPU.
+    """
     try:
-        import mediapipe as mp
+        from rembg import remove as rembg_remove
     except ImportError:
-        raise ImportError("Install mediapipe: pip install mediapipe")
+        raise ImportError("Install rembg: pip install rembg")
 
-    img_bgr = cv2.imread(str(image_path))
-    if img_bgr is None:
-        logger.error("Could not read %s", image_path)
-        return None
+    input_img = Image.open(image_path).convert("RGB")
+    output_img = rembg_remove(input_img)           # returns RGBA; alpha = foreground
+    alpha = np.array(output_img.convert("RGBA"))[:, :, 3]
+    mask = (alpha > 127).astype(np.uint8) * 255
 
-    mp_selfie = mp.solutions.selfie_segmentation
-    with mp_selfie.SelfieSegmentation(model_selection=1) as seg:
-        img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
-        result = seg.process(img_rgb)
-
-    if result.segmentation_mask is None:
-        return None
-
-    mask = (result.segmentation_mask > 0.5).astype(np.uint8) * 255
-    # Minor morphological cleanup to remove small islands
+    # Clean up small floating islands
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
     return mask
+
+
+# ── MediaPipe backend ──────────────────────────────────────────────────────────
+
+def _mediapipe_mask(image_path: Path) -> np.ndarray | None:
+    """
+    Return a uint8 mask using MediaPipe Selfie Segmentation.
+    MediaPipe ≥ 0.10 removed mp.solutions on macOS — falls back to rembg
+    automatically so the pipeline never hard-crashes.
+    """
+    try:
+        import mediapipe as mp
+
+        # mp.solutions was deprecated in MediaPipe 0.10+ on some platforms
+        selfie_mod = getattr(mp, "solutions", None)
+        selfie_seg = getattr(selfie_mod, "selfie_segmentation", None) if selfie_mod else None
+
+        if selfie_seg is None:
+            logger.warning(
+                "mp.solutions.selfie_segmentation not available in this MediaPipe "
+                "version — falling back to rembg."
+            )
+            return _rembg_mask(image_path)
+
+        img_bgr = cv2.imread(str(image_path))
+        if img_bgr is None:
+            logger.error("Could not read %s", image_path)
+            return None
+
+        with selfie_seg.SelfieSegmentation(model_selection=1) as seg:
+            img_rgb = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+            result = seg.process(img_rgb)
+
+        if result.segmentation_mask is None:
+            return None
+
+        mask = (result.segmentation_mask > 0.5).astype(np.uint8) * 255
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        return mask
+
+    except ImportError:
+        raise ImportError("Install mediapipe: pip install mediapipe")
 
 
 # ── SAM 2 backend ──────────────────────────────────────────────────────────────
@@ -158,8 +197,10 @@ def process_template(entry: dict[str, Any], force: bool = False) -> bool:
 
     if SEGMENTATION_BACKEND == "sam2":
         mask = _sam2_mask(original_path)
-    else:
+    elif SEGMENTATION_BACKEND == "mediapipe":
         mask = _mediapipe_mask(original_path)
+    else:  # default: rembg
+        mask = _rembg_mask(original_path)
 
     if mask is None:
         logger.warning("Segmentation failed for %s — no person detected.", entry["template_id"])

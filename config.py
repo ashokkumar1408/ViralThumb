@@ -3,6 +3,10 @@
 import os
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()  # reads .env before any os.environ.get() calls below
+
 # ── Directories ────────────────────────────────────────────────────────────────
 BASE_DIR = Path(__file__).parent
 TEMPLATES_DIR = BASE_DIR / "templates"
@@ -36,8 +40,8 @@ TARGET_LIBRARY_SIZE = 100         # maximum live templates per niche combined
 PHASH_DISTANCE_THRESHOLD = 8      # perceptual hash bits; lower = stricter dedup
 
 # ── Image Processor ────────────────────────────────────────────────────────────
-# Choose 'mediapipe' (fast, CPU) or 'sam2' (accurate, requires GPU)
-SEGMENTATION_BACKEND = os.environ.get("SEGMENTATION_BACKEND", "mediapipe")
+# Choose 'rembg' (default, CPU, no setup), 'mediapipe', or 'sam2' (GPU)
+SEGMENTATION_BACKEND = os.environ.get("SEGMENTATION_BACKEND", "rembg")
 
 # SAM 2 checkpoint (only used when SEGMENTATION_BACKEND='sam2')
 SAM2_CHECKPOINT = os.environ.get(

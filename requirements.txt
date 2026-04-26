@@ -8,19 +8,24 @@ imagehash>=4.3.1
 numpy>=1.26.0
 requests>=2.31.0
 
-# ── Segmentation backends (install at least one) ───────────────────────────────
-# MediaPipe (CPU, fast):
+# ── Segmentation (default: rembg — works on macOS/Linux/Win, CPU-only) ─────────
+rembg>=2.0.50
+
+# MediaPipe (alternative backend; NOTE: mp.solutions.selfie_segmentation was
+# removed in MediaPipe ≥ 0.10 on macOS — rembg is used as automatic fallback)
 mediapipe>=0.10.14
 
-# SAM 2 (GPU, accurate) — install manually from:
+# SAM 2 (GPU, highest quality) — install manually from:
 #   https://github.com/facebookresearch/segment-anything-2
-# Then install the package: pip install -e .
 # Also needs: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
 
 # ── Face compositing ───────────────────────────────────────────────────────────
 insightface>=0.7.3
 onnxruntime>=1.18.0          # CPU inference for InsightFace
 # onnxruntime-gpu>=1.18.0    # uncomment for GPU inference
+
+# ── Web app ────────────────────────────────────────────────────────────────────
+flask>=3.0.0
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
