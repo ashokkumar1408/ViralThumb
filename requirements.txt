@@ -1,18 +1,18 @@
-# ── YouTube API ────────────────────────────────────────────────────────────────
-google-api-python-client>=2.120.0
-
-# ── Image processing ───────────────────────────────────────────────────────────
+# ── Core image engine ─────────────────────────────────────────────────────────
 Pillow>=10.3.0
 opencv-python-headless>=4.9.0
-imagehash>=4.3.1
 numpy>=1.26.0
-requests>=2.31.0
 
-# ── Background removal (default segmentation — CPU, no GPU required) ──────────
+# ── Background removal (AI, CPU-only) ─────────────────────────────────────────
 rembg>=2.0.50
 
 # ── Web app ────────────────────────────────────────────────────────────────────
 flask>=3.0.0
 
-# ── Utilities ──────────────────────────────────────────────────────────────────
+# ── Env file loading ───────────────────────────────────────────────────────────
 python-dotenv>=1.0.0
+
+# ── Optional: YouTube template library (run curator.py / processor.py) ────────
+# google-api-python-client>=2.120.0
+# imagehash>=4.3.1
+# requests>=2.31.0
